@@ -1,0 +1,175 @@
+:root {
+  /* --background-color: #ffffff; */
+  --outline-color: #224945;
+  --accent-color: #ccefe0;
+  --neutral-bg: #f8f6f6;
+  --primary-color: #266431;
+  --complementary-color: #f5b748;
+  --alert-color: #ff6f4c;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Lato", serif;
+  font-size: 1rem;
+  color: var(--outline-color);
+}
+
+.content {
+  max-width: 600px;
+  display: flex;
+  margin: 0 auto;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  gap: 20px;
+}
+
+.landing-page > .content {
+  height: 100vh;
+  justify-content: center;
+}
+
+.logo {
+  margin-bottom: 180px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.button {
+  margin-bottom: 10px;
+}
+
+.button > button,
+.form-btn {
+  background-color: var(--primary-color);
+  color: var(--neutral-bg);
+  font-weight: bold;
+  font-size: 1rem;
+  padding: 15px;
+  width: 300px;
+  border: none;
+  border-radius: 10px;
+}
+
+.landing-page p {
+  margin: 10px 0px;
+  color: var(--outline-color);
+}
+
+.CTA,
+.cta-link {
+  color: var(--primary-color);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.header {
+  display: flex;
+  gap: 3rem;
+  padding: 20px;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.header > .icon-btn {
+  position: absolute;
+  left: 20px;
+  top: 30%;
+}
+
+.icon-btn {
+  padding: 8px;
+  border: none;
+  background-color: transparent;
+}
+.fa-solid {
+  font-weight: 900;
+  font-size: 1.2rem;
+  color: var(--primary-color);
+}
+
+.header h1 {
+  font-size: 1.6rem;
+  font-wight: 900;
+  color: var(--background-color);
+}
+
+.role-btn {
+  width: 100%;
+  background-color: var(--neutral-bg);
+  display: flex;
+  border-radius: 10px;
+}
+
+.role-btn button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+  /* font-weight: bold; */
+}
+
+.role-btn #user {
+  background-color: var(--accent-color);
+  color: var(--outline-color);
+  font-weight: bold;
+}
+
+.role-btn #coach {
+  background-color: var(--neutral-bg);
+}
+
+.data-form {
+  width: 100%;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+}
+
+.input-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 8px 0px 15px 0px;
+}
+
+input {
+  flex: 1;
+  padding: 15px;
+}
+
+.input-btn,
+input {
+  background-color: var(--neutral-bg);
+  border-radius: 10px;
+  border: none;
+}
+
+.form-btn {
+  margin: 15px auto;
+  width: 100%;
+}
+
+.cta-link {
+  color: var(--primary-color);
+}
+
+.logIn-form {
+  margin-top: 70px;
+}
+
+.logIn-btn {
+  margin-top: 56px;
+}
+
+.password-cta-link {
+  align-self: flex-start;
+}
