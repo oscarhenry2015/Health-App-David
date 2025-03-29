@@ -1,72 +1,191 @@
-// Import necessary modules
-import express from "express"; // Express framework for building the server
-import path, { dirname } from "path"; // Utilities for working with file and directory paths
-import { fileURLToPath } from "url"; // Utility to convert file URL to file path
-// Import pg from "pg"; // PostgreSQL client for Node.js
-import bodyParser from "body-parser"; // Middleware to parse incoming request bodies
-// Import { hostname } from "os"; // (Commented out) Utility to get the system's hostname
+import express from "express";
+import pg from "pg";
+import bodyParser from "body-parser";
+import bcrypt from "bcrypt";
+import env from "dotenv";
+import session from "express-session";
+import passport from "passport";
+import { Strategy } from "passport-local";
 
-// Initialize the Express application
 const app = express();
+const port = process.env.PORT || 3000
+const saltRounds = 12;
+// Initialize env
+env.config();
 
-// Define the port on which the server will listen
-const port = process.env.PORT || 3000; // Use dynamic port for Azure;
+// Initialize session
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: true,
+    cookie: {
+      maxAge: 1000 * 60 * 60 * 24 * 7,
+      httpOnly: true,
+    },
+  })
+);
 
-// Get the directory name of the current module file
-const __dirname = dirname(fileURLToPath(import.meta.url));
+// Initialize passport
+app.use(passport.initialize());
+app.use(passport.session());
 
-// Create a new PostgreSQL client instance and configure the database connection
-// const db = new pg.Client({
-//  user: "postgres", // Database username
-//  host: "localhost", // Database host
-//  database: "postgres", // Database name
-//  password: "henry", // Database password
-//  port: 5432, // Database port
-//});
+// Initialize Database
+const db = new pg.Client({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_DATABASE,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
+});
+db.connect();
 
-// Connect to the PostgreSQL database
-// db.connect();
-
-// Middleware to parse URL-encoded request bodies (for form submissions)
+// Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
-
-// Serve static files from the "public" directory
 app.use(express.static("public"));
 
-// Define a route for the root URL ("/")
+// Routes
 app.get("/", (req, res) => {
-  // Send the "index.html" file as the response
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.render("index.ejs");
 });
 
-// Define a route for the "/login" URL
 app.get("/login", (req, res) => {
-  // Send the "login.html" file as the response
-  res.sendFile(path.join(__dirname, "public", "login.html"));
+  res.render("login.ejs");
 });
 
-// Define a route for the "/signup" URL
 app.get("/signup", (req, res) => {
-  // Send the "signup.html" file as the response
-  res.sendFile(path.join(__dirname, "public", "signup.html"));
+  res.render("signup.ejs");
 });
 
-// Define a POST route for the "/signup" URL to handle form submissions
+app.get("/home", (req, res) => {
+  if (req.isAuthenticated()) {
+    res.render("home.ejs");
+  } else {
+    res.redirect("/login");
+  }
+});
+
 app.post("/signup", async (req, res) => {
-  // Extract form data from the request body
-  const user = req.body.person; // User's name
-  const email = req.body.email; // User's email
-  const pass = req.body.password; // User's password
-  const confirmPass = req.body.confirmPassword; // User's confirmed password
+  const { person, email, password } = req.body;
 
-  // Log the extracted form data to the console (for debugging purposes)
-  console.log(user);
-  console.log(email);
-  console.log(pass);
-  console.log(confirmPass);
+  try {
+    // Check if user exists
+    const existingUser = await db.query(
+      "SELECT * FROM users WHERE email = $1",
+      [email]
+    );
+    if (existingUser.rows.length > 0) {
+      return res.status(409).send("Email already in use.");
+    } else {
+      // Hash password
+      const salt = await bcrypt.genSalt(saltRounds);
+      const hashedPassword = await bcrypt.hash(password, salt);
+      //  Send data to database
+      const result = await db.query(
+        "INSERT INTO users (name,email,password) VALUES ($1, $2, $3) RETURNING *",
+        [person, email, hashedPassword]
+      );
+      const user = result.rows[0];
+      req.login(user, (err) => {
+        if (err) {
+          console.error("Sign Up Error:", err.message);
+          return res
+            .status(500)
+            .json({ error: "Authentication failed. Please try again." });
+        }
+        return res.redirect("/home");
+      });
+    }
+  } catch (err) {
+    console.error("Database Error", err.message);
+    return res
+      .status(500)
+      .json({ error: "Oops! Something went wrong. Please try again later." });
+  }
 });
 
-// Start the server and listen on the specified port
+app.post("/login", (req, res, next) => {
+  passport.authenticate("local", (err, user, info) => {
+    // Check for system errors
+    if (err) {
+      console.error("Login Error", err.message);
+      return res
+        .status(500)
+        .json({ error: "Oops! Something went wrong. Please try again later." });
+    }
+
+    // If user is not found ot password in incorrect
+    if (!user) {
+      return res.status(401).json({ error: info.message });
+    }
+
+    // Log user in
+    req.login(user, (err) => {
+      if (err) {
+        console.error("Login Session Error:", err.message);
+        return res.status(500).json({ error: "Session error. Try again." });
+      }
+      // If log in successful redirect to home
+      return res.redirect("/home");
+    });
+  })(
+    // Manually invoke passport. authenticate
+    req,
+    res,
+    next
+  );
+});
+
+// Register new Strategy
+passport.use(
+  new Strategy(async function verify(username, password, cb) {
+    try {
+      //  Check if email exists in database
+      const result = await db.query("SELECT * FROM users WHERE email = $1", [
+        username,
+      ]);
+      if (result.rows.length === 0) {
+        return cb(null, false, { message: "User does not exist." });
+      }
+      const user = result.rows[0];
+      const storedHashedPassword = user.password;
+
+      // Compare if provided password is the same as password in database
+      const isMatch = await bcrypt.compare(password, storedHashedPassword);
+
+      if (isMatch) {
+        return cb(null, user);
+      } else {
+        return cb(null, false, { message: "Incorrect Password." });
+      }
+    } catch (err) {
+      return cb(err);
+    }
+  })
+);
+
+passport.serializeUser((user, cb) => {
+  cb(null, user.id);
+});
+
+passport.deserializeUser(async (id, cb) => {
+  try {
+    const result = await db.query(
+      "SELECT id, name, email FROM users WHERE id = $1",
+      [id]
+    );
+    if (result.rows.length === 0) {
+      return cb(null, false);
+    }
+    // Fetch user from the database
+    cb(null, result.rows[0]);
+  } catch (err) {
+    console.log("Deserialize Error:", err.message);
+    cb(err);
+  }
+});
+
+// Start Server
 app.listen(port, () => {
   console.log(`Server listening at port ${port}`);
 });
